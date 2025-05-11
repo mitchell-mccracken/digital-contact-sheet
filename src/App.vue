@@ -4,7 +4,7 @@ import FileUploader from './components/FileUploader.vue'
 
 <template>
   <div id="app">
-    <h1>Vue Image App</h1>
+    <h1>Digital Contact Sheet App</h1>
     <FileUploader />
   </div>
 </template>
