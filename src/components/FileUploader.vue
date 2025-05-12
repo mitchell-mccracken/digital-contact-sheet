@@ -62,24 +62,28 @@
         </label>
       </div>
       <div class="action-buttons">
-        <button @click="generateContactSheet" :disabled="!files.length" style="margin-bottom: 1rem;">
+        <button @click="generateContactSheet" :disabled="!files.length || isLoading" style="margin-bottom: 1rem;">
           Generate Contact Sheet
         </button>
-        <button @click="clearImages" :disabled="!files.length">
+        <button @click="clearImages" :disabled="!files.length || isLoading">
           Clear Images
         </button>
       </div>
     </div>
 
+    <!-- Loading Indicator -->
+    <div v-if="isLoading" class="loading-indicator">
+      <p>Generating contact sheet, please wait...</p>
+    </div>
+
     <!-- Contact Sheet Preview -->
-    <div v-if="previewUrl" class="preview-container">
-      
+    <div v-if="previewUrl && !isLoading" class="preview-container">
       <div class="preview">
         <div class="preview-text">
-            <h2>Contact Sheet Preview:</h2>
-            <button class="download-button" @click="downloadContactSheet">
-                Download Contact Sheet
-            </button>
+          <h2>Contact Sheet Preview:</h2>
+          <button class="download-button" @click="downloadContactSheet">
+            Download Contact Sheet
+          </button>
         </div>
         <img :src="previewUrl" alt="Contact Sheet Preview" />
       </div>
@@ -119,6 +123,7 @@ export default {
       backgroundColor: "#ffffff", // Default background color
       previewUrl: null, // URL for the preview image
       sortOrder: "keep", // Default sort order
+      isLoading: false, // Loading state
     };
   },
   methods: {
@@ -157,17 +162,18 @@ export default {
       this.$refs.fileInput.click();
     },
     async generateContactSheet() {
+      this.isLoading = true; // Start loading
       const canvas = this.$refs.canvas;
       const ctx = canvas.getContext("2d");
 
       const padding = 20; // Padding around the canvas and between images
       const imagesPerRow = 5; // Max images per row
 
-      // Resize images and ensure all are loaded
+      // Ensure all images are loaded and resized
       const resizedImages = await Promise.all(
         this.files.map(async (fileObj) => {
-          const img = await this.loadImage(fileObj.file);
-          const resized = this.resizeImage(img, this.maxSize);
+          const img = await this.loadImage(fileObj.file); // Ensure image is fully loaded
+          const resized = this.resizeImage(img, this.maxSize); // Resize the image
           return { img: resized, aspectRatio: img.width / img.height };
         })
       );
@@ -217,6 +223,7 @@ export default {
 
       // Generate preview URL
       this.previewUrl = canvas.toDataURL("image/png");
+      this.isLoading = false; // Stop loading
     },
     downloadContactSheet() {
       const link = document.createElement("a");
@@ -370,5 +377,10 @@ export default {
   align-items: center;
   justify-content: space-between;
 }
-
+.loading-indicator {
+  text-align: center;
+  margin-top: 20px;
+  font-size: 1.2em;
+  color: #42b883;
+}
 </style>
