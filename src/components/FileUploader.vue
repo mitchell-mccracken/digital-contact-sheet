@@ -108,141 +108,165 @@
   </div>
 </template>
 
-<script>
+<script lang="ts">
+import { defineComponent, ref, reactive, onMounted } from "vue";
 import draggable from "vuedraggable";
 
-export default {
+interface FileItem {
+  file: File;
+  name: string;
+  thumbnail: string;
+}
+
+export default defineComponent({
   name: "FileUploader",
   components: {
     draggable,
   },
-  data() {
-    return {
-      files: [],
-      maxSize: 300, // Default max size for images
-      backgroundColor: "#ffffff", // Default background color
-      previewUrl: null, // URL for the preview image
-      sortOrder: "keep", // Default sort order
-      isLoading: false, // Loading state
+  setup() {
+    const fileInput = ref<HTMLInputElement | null>(null);
+    const canvas = ref<HTMLCanvasElement | null>(null);
+    const files = ref<FileItem[]>([]);
+    const maxSize = ref<number>(300);
+    const backgroundColor = ref<string>("#ffffff");
+    const previewUrl = ref<string | null>(null);
+    const sortOrder = ref<"keep" | "landscape" | "portrait">("keep");
+    const isLoading = ref<boolean>(false);
+
+    const setSortOrder = () => {
+      localStorage.setItem("DIGITAL_CONTACT_SHEET_SORT_ORDER", sortOrder.value);
     };
-  },
-  methods: {
-    setSortOrder(event) {
-      localStorage.setItem("DIGITAL_CONTACT_SHEET_SORT_ORDER", this.sortOrder);
-    },
-    setPxSize(event) {
-      localStorage.setItem("DIGITAL_CONTACT_SHEET_MAX_SIZE", this.maxSize);
-    },
-    handleDrop(event) {
-      const droppedFiles = Array.from(event.dataTransfer.files).filter(
-        (file) => file.type.startsWith("image/")
-      );
-      this.addFiles(droppedFiles);
-    },
-    handleFileSelect(event) {
-      const selectedFiles = Array.from(event.target.files).filter((file) =>
+
+    const setPxSize = () => {
+      localStorage.setItem("DIGITAL_CONTACT_SHEET_MAX_SIZE", maxSize.value.toString());
+    };
+
+    const handleDrop = (event: DragEvent) => {
+      const droppedFiles = Array.from(event.dataTransfer?.files || []).filter((file) =>
         file.type.startsWith("image/")
       );
-      this.addFiles(selectedFiles);
-    },
-    addFiles(files) {
-      files.forEach((file) => {
+      addFiles(droppedFiles);
+    };
+
+    const handleFileSelect = (event: Event) => {
+      const input = event.target as HTMLInputElement;
+      const selectedFiles = Array.from(input.files || []).filter((file) =>
+        file.type.startsWith("image/")
+      );
+      addFiles(selectedFiles);
+    };
+
+    const addFiles = (newFiles: File[]) => {
+      newFiles.forEach((file) => {
         const reader = new FileReader();
         reader.onload = (e) => {
-          this.files.push({
+          files.value.push({
             file,
             name: file.name,
-            thumbnail: e.target.result,
+            thumbnail: e.target?.result as string,
           });
         };
         reader.readAsDataURL(file);
       });
-    },
-    triggerFileInput() {
-      this.$refs.fileInput.click();
-    },
-    async generateContactSheet() {
-      this.isLoading = true; // Start loading
-      const canvas = this.$refs.canvas;
-      const ctx = canvas.getContext("2d");
+    };
 
-      const padding = 20; // Padding around the canvas and between images
-      const imagesPerRow = 5; // Max images per row
+    const triggerFileInput = () => {
+      fileInput.value?.click();
+    };
 
-      // Ensure all images are loaded and resized
-      const resizedImages = await Promise.all(
-        this.files.map(async (fileObj) => {
-          const img = await this.loadImage(fileObj.file); // Ensure image is fully loaded
-          const resized = this.resizeImage(img, this.maxSize); // Resize the image
-          return { img: resized, aspectRatio: img.width / img.height };
-        })
-      );
+    const generateContactSheet = async () => {
+      if (!canvas.value) return;
+      isLoading.value = true;
 
-      // Sort images based on the selected sort order
-      if (this.sortOrder === "landscape") {
-        resizedImages.sort((a, b) => b.aspectRatio - a.aspectRatio); // Landscape first
-      } else if (this.sortOrder === "portrait") {
-        resizedImages.sort((a, b) => a.aspectRatio - b.aspectRatio); // Portrait first
+      const ctx = canvas.value.getContext("2d");
+      const padding = 20;
+      const imagesPerRow = 5;
+
+      try {
+        // Ensure all images are loaded and resized
+        const resizedImages = await Promise.all(
+          files.value.map(async (fileObj) => {
+            const img = await loadImage(fileObj.file); // Ensure image is fully loaded
+            const resized = resizeImage(img, maxSize.value); // Resize the image
+            return { img: resized, aspectRatio: img.width / img.height };
+          })
+        );
+
+        // Sort images based on the selected sort order
+        if (sortOrder.value === "landscape") {
+          resizedImages.sort((a, b) => b.aspectRatio - a.aspectRatio); // Landscape first
+        } else if (sortOrder.value === "portrait") {
+          resizedImages.sort((a, b) => a.aspectRatio - b.aspectRatio); // Portrait first
+        }
+
+        // Calculate canvas dimensions
+        const rowCount = Math.ceil(resizedImages.length / imagesPerRow);
+        const canvasWidth =
+          imagesPerRow * maxSize.value + (imagesPerRow + 1) * padding;
+        const canvasHeight =
+          rowCount * maxSize.value + (rowCount + 1) * padding;
+
+        canvas.value.width = canvasWidth;
+        canvas.value.height = canvasHeight;
+
+        // Fill canvas background with the selected color
+        ctx!.fillStyle = backgroundColor.value;
+        ctx!.fillRect(0, 0, canvasWidth, canvasHeight);
+
+        // Draw images on canvas
+        resizedImages.forEach(({ img }, index) => {
+          const row = Math.floor(index / imagesPerRow);
+          const col = index % imagesPerRow;
+
+          const totalRowWidth =
+            Math.min(imagesPerRow, resizedImages.length - row * imagesPerRow) *
+            (maxSize.value + padding) -
+            padding;
+          const xOffset = (canvasWidth - totalRowWidth) / 2;
+
+          const x = xOffset + col * (maxSize.value + padding);
+          const y = padding + row * (maxSize.value + padding);
+
+          const centeredX = x + (maxSize.value - img.width) / 2;
+          const centeredY = y + (maxSize.value - img.height) / 2;
+
+          ctx!.drawImage(img, centeredX, centeredY, img.width, img.height);
+        });
+
+        // Log resized images and canvas dimensions
+        console.log("Resized Images:", resizedImages);
+        console.log("Canvas Dimensions:", { width: canvasWidth, height: canvasHeight });
+
+        // Generate preview URL
+        previewUrl.value = canvas.value.toDataURL("image/png");
+      } catch (error) {
+        console.error("Error generating contact sheet:", error);
+      } finally {
+        isLoading.value = false;
       }
+    };
 
-      // Calculate canvas dimensions
-      const rowCount = Math.ceil(resizedImages.length / imagesPerRow);
-      const canvasWidth =
-        imagesPerRow * this.maxSize + (imagesPerRow + 1) * padding;
-      const canvasHeight =
-        rowCount * this.maxSize + (rowCount + 1) * padding;
-
-      canvas.width = canvasWidth;
-      canvas.height = canvasHeight;
-
-      // Fill canvas background with the selected color
-      ctx.fillStyle = this.backgroundColor;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      // Draw images on canvas
-      resizedImages.forEach(({ img }, index) => {
-        const row = Math.floor(index / imagesPerRow);
-        const col = index % imagesPerRow;
-
-        // Calculate the starting x and y positions for centering
-        const totalRowWidth =
-          Math.min(imagesPerRow, resizedImages.length - row * imagesPerRow) *
-          (this.maxSize + padding) -
-          padding;
-        const xOffset = (canvasWidth - totalRowWidth) / 2;
-
-        const x = xOffset + col * (this.maxSize + padding);
-        const y = padding + row * (this.maxSize + padding);
-
-        // Center the image within its allocated space
-        const centeredX = x + (this.maxSize - img.width) / 2;
-        const centeredY = y + (this.maxSize - img.height) / 2;
-
-        ctx.drawImage(img, centeredX, centeredY, img.width, img.height);
-      });
-
-      // Generate preview URL
-      this.previewUrl = canvas.toDataURL("image/png");
-      this.isLoading = false; // Stop loading
-    },
-    downloadContactSheet() {
+    const downloadContactSheet = () => {
       const link = document.createElement("a");
-      link.href = this.previewUrl;
+      link.href = previewUrl.value!;
       link.download = "contact-sheet.png";
       link.click();
-    },
-    loadImage(file) {
-      return new Promise((resolve) => {
+    };
+
+    const loadImage = (file: File): Promise<HTMLImageElement> => {
+      return new Promise((resolve, reject) => {
         const img = new Image();
         img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error(`Failed to load image: ${file.name}`));
         img.src = URL.createObjectURL(file);
       });
-    },
-    resizeImage(img, maxSize) {
-      const canvas = document.createElement("canvas");
-      const ctx = canvas.getContext("2d");
+    };
 
+    const resizeImage = (img: HTMLImageElement, maxSize: number): HTMLImageElement => {
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d")!;
       const aspectRatio = img.width / img.height;
+
       if (img.width > img.height) {
         canvas.width = maxSize;
         canvas.height = maxSize / aspectRatio;
@@ -256,23 +280,49 @@ export default {
       const resizedImg = new Image();
       resizedImg.src = canvas.toDataURL();
       return resizedImg;
-    },
-    clearImages() {
-      this.files = [];
-      this.previewUrl = null;
-    },
-    getLocalStorage() {
-        const localMaxSize = localStorage.getItem("DIGITAL_CONTACT_SHEET_MAX_SIZE");
-        if (localMaxSize) this.maxSize = parseInt(localMaxSize, 10);
+    };
 
-        const localSortOrder = localStorage.getItem("DIGITAL_CONTACT_SHEET_SORT_ORDER");
-        if (localSortOrder) this.sortOrder = localSortOrder;
-    },
+    const clearImages = () => {
+      files.value = [];
+      previewUrl.value = null;
+    };
+
+    const getLocalStorage = () => {
+      const localMaxSize = localStorage.getItem("DIGITAL_CONTACT_SHEET_MAX_SIZE");
+      if (localMaxSize) maxSize.value = parseInt(localMaxSize, 10);
+
+      const localSortOrder = localStorage.getItem("DIGITAL_CONTACT_SHEET_SORT_ORDER");
+      if (localSortOrder) sortOrder.value = localSortOrder as "keep" | "landscape" | "portrait";
+    };
+
+    onMounted(() => {
+      getLocalStorage();
+    });
+
+    return {
+      fileInput,
+      canvas,
+      files,
+      maxSize,
+      backgroundColor,
+      previewUrl,
+      sortOrder,
+      isLoading,
+      setSortOrder,
+      setPxSize,
+      handleDrop,
+      handleFileSelect,
+      addFiles,
+      triggerFileInput,
+      generateContactSheet,
+      downloadContactSheet,
+      loadImage,
+      resizeImage,
+      clearImages,
+      getLocalStorage,
+    };
   },
-    mounted() {
-        this.getLocalStorage();
-    },
-};
+});
 </script>
 
 <style scoped>
