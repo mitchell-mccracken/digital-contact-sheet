@@ -13,20 +13,24 @@
       <p>Drag and drop images here, or click to select files</p>
     </div>
     <div class="controls">
-      <label for="max-size">Max Image Size (px):</label>
-      <input
-        id="max-size"
-        type="number"
-        v-model.number="maxSize"
-        min="50"
-        @change="setPxSize"
-      />
-      <label for="bg-color">Background Color:</label>
-      <input
-        id="bg-color"
-        type="color"
-        v-model="backgroundColor"
-      />
+      <div class="user-input">
+        <label for="max-size">Max Image Size (px):</label>
+        <input
+          id="max-size"
+          type="number"
+          v-model.number="maxSize"
+          min="50"
+          @change="setPxSize"
+        />
+      </div>
+      <div class="user-input">
+        <label for="bg-color">Background Color:</label>
+        <input
+          id="bg-color"
+          type="color"
+          v-model="backgroundColor"
+        />
+      </div>
       <div class="sort-options">
         <p>Sort Order:</p>
         <label>
@@ -58,7 +62,7 @@
         </label>
       </div>
       <div class="action-buttons">
-        <button @click="generateContactSheet" :disabled="!files.length">
+        <button @click="generateContactSheet" :disabled="!files.length" style="margin-bottom: 1rem;">
           Generate Contact Sheet
         </button>
         <button @click="clearImages" :disabled="!files.length">
@@ -366,4 +370,5 @@ export default {
   align-items: center;
   justify-content: space-between;
 }
+
 </style>

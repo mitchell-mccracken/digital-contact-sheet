@@ -1,11 +1,17 @@
+/* Global Dark Mode Theme */
 :root {
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
 
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+  color-scheme: dark; /* Force dark mode */
+  --background-color: #2c2b2b; /* Dark background */
+  --text-color: #ffffff; /* Light text */
+  --border-color: #333333; /* Darker border */
+  --highlight-color: #42b883; /* Accent color */
+
+  color: var(--text-color);
+  background-color: var(--background-color);
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -28,6 +34,9 @@ body {
   place-items: center;
   min-width: 320px;
   min-height: 100vh;
+  background-color: var(--background-color);
+  color: var(--text-color);
+  font-family: Avenir, Helvetica, Arial, sans-serif;
 }
 
 h1 {
@@ -53,6 +62,19 @@ button:focus,
 button:focus-visible {
   outline: 4px auto -webkit-focus-ring-color;
 }
+button:disabled {
+  background-color: #555555;
+}
+
+button,
+input[type="checkbox"] {
+  min-height: 44px; /* Recommended minimum height for touch targets */
+  min-width: 44px; /* Recommended minimum width for touch targets */
+}
+input[type="radio"] {
+  min-height: 25px; /* Recommended minimum height for touch targets */
+  min-width: 25px; /* Recommended minimum width for touch targets */
+}
 
 .card {
   padding: 2em;
@@ -65,6 +87,52 @@ button:focus-visible {
   text-align: center;
 }
 
+.upload-area {
+  background-color: #1e1e1e;
+  color: var(--text-color);
+  padding: 1.5rem;
+  border-radius: 8px;
+  font-size: 1em;
+}
+
+.upload-area:hover {
+  background-color: #444444; /* Slightly lighter hover effect */
+}
+
+.controls input,
+.controls button {
+  background-color: #333333;
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
+}
+
+.sort-options label {
+  color: var(--text-color);
+}
+
+.file-item {
+  color: var(--text-color);
+}
+
+.thumbnail {
+  border: 1px solid var(--border-color);
+}
+
+.preview-container {
+  background-color: var(--background-color);
+}
+
+.download-button {
+  background-color: var(--highlight-color);
+  color: var(--text-color);
+}
+
+.file-list {
+  padding: 0.5rem;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+}
+
 @media (prefers-color-scheme: light) {
   :root {
     color: #213547;
@@ -75,5 +143,83 @@ button:focus-visible {
   }
   button {
     background-color: #f9f9f9;
+  }
+}
+
+/* General styles for mobile devices */
+@media (max-width: 480px) {
+  body {
+    display: block; /* Stack elements vertically */
+    padding: .25rem;
+  }
+
+  #app {
+    padding: .5rem;
+    text-align: left; /* Align text to the left for better readability */
+  }
+
+  h1 {
+    font-size: 2em; /* Reduce font size for smaller screens */
+    line-height: 1.2;
+  }
+
+  .upload-area {
+    padding: 1rem;
+    font-size: 0.9em; /* Adjust font size for better readability */
+    text-align: center;
+  }
+
+  .controls {
+    display: flex;
+    flex-direction: column; /* Stack controls vertically */
+    gap: 1rem; /* Add spacing between controls */
+  }
+
+  .controls input,
+  .controls button {
+    font-size: 0.9em; /* Adjust font size */
+    padding: 0.5em; /* Reduce padding */
+  }
+
+  .sort-options {
+    display: flex;
+    flex-direction: column; /* Stack sort options vertically */
+    gap: 0.5rem;
+  }
+
+  .file-item {
+    display: flex;
+    flex-direction: column; /* Stack thumbnail and name vertically */
+    align-items: center;
+    font-size: 0.8em; /* Adjust font size */
+  }
+
+  .thumbnail {
+    width: 100%; /* Make thumbnails responsive */
+    max-width: 150px; /* Set a max width */
+    height: auto; /* Maintain aspect ratio */
+  }
+
+  .preview-container {
+    padding: 1rem;
+  }
+
+  .download-button {
+    width: 100%; /* Make the button full-width */
+    padding: 0.8em;
+    font-size: 1em;
+  }
+  .user-input {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  #bg-color {
+    width: 5rem;
+    height: 30px;
+    border: none;
+    padding: .15rem;
+    margin: 0;
+    border-radius: 4px;
   }
 }

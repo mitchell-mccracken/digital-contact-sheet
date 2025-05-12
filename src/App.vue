@@ -13,7 +13,7 @@ import FileUploader from './components/FileUploader.vue'
 #app {
   font-family: Avenir, Helvetica, Arial, sans-serif;
   text-align: center;
-  margin-top: 50px;
+  margin-top: 1.5rem;
 }
 .logo {
   height: 6em;
