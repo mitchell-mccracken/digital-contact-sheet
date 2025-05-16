@@ -109,7 +109,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, reactive, onMounted } from "vue";
+import { defineComponent, ref, onMounted } from "vue";
 import draggable from "vuedraggable";
 
 interface FileItem {
@@ -187,7 +187,7 @@ export default defineComponent({
         const resizedImages = await Promise.all(
           files.value.map(async (fileObj) => {
             const img = await loadImage(fileObj.file); // Ensure image is fully loaded
-            const resized = resizeImage(img, maxSize.value); // Resize the image
+            const resized = await resizeImage(img, maxSize.value); // Resize the image
             return { img: resized, aspectRatio: img.width / img.height };
           })
         );
@@ -262,7 +262,7 @@ export default defineComponent({
       });
     };
 
-    const resizeImage = (img: HTMLImageElement, maxSize: number): HTMLImageElement => {
+    const resizeImage = async (img: HTMLImageElement, maxSize: number): Promise<HTMLImageElement> => {
       const canvas = document.createElement("canvas");
       const ctx = canvas.getContext("2d")!;
       const aspectRatio = img.width / img.height;
@@ -275,10 +275,17 @@ export default defineComponent({
         canvas.width = maxSize * aspectRatio;
       }
 
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      await new Promise<void>((resolve) => {
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve();
+      });
 
-      const resizedImg = new Image();
-      resizedImg.src = canvas.toDataURL();
+      const resizedImg = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error("Failed to create resized image"));
+        img.src = canvas.toDataURL();
+      });
       return resizedImg;
     };
 
