@@ -280,8 +280,8 @@ export default defineComponent({
           ctx!.drawImage(img, centeredX, centeredY, img.width, img.height);
         });
 
-        // Generate preview URL
-        previewUrl.value = canvas.value.toDataURL("image/png");
+        // Generate preview URL as JPEG
+        previewUrl.value = canvas.value.toDataURL("image/jpeg", 0.9);
       } catch (error) {
         console.error("Error generating contact sheet:", error);
       } finally {
@@ -292,7 +292,7 @@ export default defineComponent({
     const downloadContactSheet = () => {
       const link = document.createElement("a");
       link.href = previewUrl.value!;
-      link.download = fileName.value || "contact-sheet.png";
+      link.download = fileName.value || "contact-sheet.jpeg";
       link.click();
     };
 
