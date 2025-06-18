@@ -31,6 +31,7 @@
             id="bg-color"
             type="color"
             v-model="backgroundColor"
+            @change="setBackgroundColor"
           />
         </div>
         <div class="user-input">
@@ -75,6 +76,10 @@
         <div class="action-buttons">
           <button @click="generateContactSheet" :disabled="!files.length || isLoading" style="margin-bottom: 1rem;">
             Generate Contact Sheet
+          </button>
+          <!-- TAKEN OUT, ONLY FOR DEV PURPOSES -->
+          <button v-if="false" @click="generateFilmStripContactSheet" :disabled="!files.length || isLoading">
+            Generate Film Strip Contact Sheet
           </button>
           <button @click="clearImages" :disabled="!files.length || isLoading">
             Clear Images
@@ -172,6 +177,26 @@ export default defineComponent({
       localStorage.setItem("DIGITAL_CONTACT_SHEET_MAX_SIZE", maxSize.value.toString());
     };
 
+    const setBackgroundColor = () => {
+      localStorage.setItem("DIGITAL_CONTACT_SHEET_BACKGROUND_COLOR", backgroundColor.value);
+    };
+
+    // not use
+    const setAsFavorite = () => {
+      // Search for existing keys in localStorage that match the format DIGITAL_CONTACT_SHEET_COLOR_FAVORITE_#
+      const keys = Object.keys(localStorage).filter(key =>
+      /^DIGITAL_CONTACT_SHEET_COLOR_FAVORITE_\d+$/.test(key)
+      );
+
+      // Determine the next available index
+      const nextIndex = keys.length > 0
+      ? Math.max(...keys.map(key => parseInt(key.match(/\d+$/)?.[0] || "0", 10))) + 1
+      : 1;
+
+      // Save the current background color as a favorite with the next available index
+      localStorage.setItem(`DIGITAL_CONTACT_SHEET_COLOR_FAVORITE_${nextIndex}`, backgroundColor.value);
+    };
+
     const handleDrop = (event: DragEvent) => {
       const droppedFiles = Array.from(event.dataTransfer?.files || []).filter((file) =>
         file.type.startsWith("image/")
@@ -187,13 +212,39 @@ export default defineComponent({
       addFiles(selectedFiles);
     };
 
+    const genImgNumber = ( s: string ) => {
+      const a = s.split('(');
+      if ( a.length === 1 ) {
+        a.push('0');
+      }
+
+      const convert = (s:string) => {
+        return s.split('')
+          .map(char => {
+            if (/\d/.test(char)) return char;
+            return '';
+          })
+          .join('');
+      }
+
+      const wholeNum = convert(a[0]);
+      let decimal = convert(a[1]);
+      if ( decimal.length === 1 ) decimal = `0${decimal}`;
+      if ( decimal.length === 2 ) decimal = `0${decimal}`;
+
+      const ret =  `${wholeNum}.${decimal}`;
+      return ret;
+    };
+
     const addFiles = async (newFiles: File[]) => {
       disableDraggable.value = true;
       const promises = newFiles.map((file) => {
         return new Promise<void>((resolve) => {
           const reader = new FileReader();
           reader.onload = (e) => {
-            const imgNumber = file.name.match(/(\d+)/)?.[0] || "0";
+            const imgNumber = (file.name.includes('(')) 
+              ? genImgNumber(file.name) || "0"
+              :  file.name.match(/(\d+)/)?.[0] || "0";
             files.value.push({
               file,
               name: file.name,
@@ -213,8 +264,8 @@ export default defineComponent({
     
     const mitchSort = () => {
       files.value.sort((a, b) => {
-        const aNumber = parseInt(a.imgNumber, 10);
-        const bNumber = parseInt(b.imgNumber, 10);
+        const aNumber = parseFloat(a.imgNumber);
+        const bNumber = parseFloat(b.imgNumber);
         return aNumber - bNumber;
       });
     };
@@ -289,6 +340,83 @@ export default defineComponent({
       }
     };
 
+    const generateFilmStripContactSheet = async () => {
+      if (!canvas.value) return;
+      isLoading.value = true;
+
+      const ctx = canvas.value.getContext("2d");
+      const padding = 10; // Padding between images
+      const filmStripBorder = 20; // Border width for the film strip
+      const sprocketHoleSize = 10; // Size of the sprocket holes
+      const sprocketHoleSpacing = 20; // Spacing between sprocket holes
+
+      try {
+        // Ensure all images are loaded and resized to portrait orientation
+        const resizedImages = await Promise.all(
+          files.value.map(async (fileObj) => {
+            const img = await loadImage(fileObj.file);
+            const resized = await resizeImage(img, maxSize.value);
+            return resized;
+          })
+        );
+
+        // Calculate canvas dimensions
+        const canvasWidth = maxSize.value + 2 * filmStripBorder;
+        const canvasHeight =
+          resizedImages.length * (maxSize.value + padding) +
+          padding +
+          2 * filmStripBorder;
+
+        canvas.value.width = canvasWidth;
+        canvas.value.height = canvasHeight;
+
+        // Draw the film strip background
+        ctx!.fillStyle = "#000000"; // Black background for the film strip
+        ctx!.fillRect(0, 0, canvasWidth, canvasHeight);
+
+        // Draw sprocket holes on the left and right sides
+        ctx!.fillStyle = "#ffffff"; // White sprocket holes
+        for (
+          let y = filmStripBorder;
+          y < canvasHeight - filmStripBorder;
+          y += sprocketHoleSpacing
+        ) {
+          // Left side
+          ctx!.fillRect(
+            filmStripBorder / 2 - sprocketHoleSize / 2,
+            y,
+            sprocketHoleSize,
+            sprocketHoleSize
+          );
+
+          // Right side
+          ctx!.fillRect(
+            canvasWidth - filmStripBorder / 2 - sprocketHoleSize / 2,
+            y,
+            sprocketHoleSize,
+            sprocketHoleSize
+          );
+        }
+
+        // Draw images on the film strip
+        resizedImages.forEach((img, index) => {
+          const x = filmStripBorder + (canvasWidth - 2 * filmStripBorder - img.width) / 2;
+          const y =
+            filmStripBorder +
+            padding +
+            index * (maxSize.value + padding);
+          ctx!.drawImage(img, x, y, img.width, img.height);
+        });
+
+        // Generate preview URL
+        previewUrl.value = canvas.value.toDataURL("image/png");
+      } catch (error) {
+        console.error("Error generating film strip contact sheet:", error);
+      } finally {
+        isLoading.value = false;
+      }
+    };
+
     const downloadContactSheet = () => {
       const link = document.createElement("a");
       link.href = previewUrl.value!;
@@ -343,6 +471,9 @@ export default defineComponent({
 
       const localSortOrder = localStorage.getItem("DIGITAL_CONTACT_SHEET_SORT_ORDER");
       if (localSortOrder) sortOrder.value = localSortOrder as "keep" | "landscape" | "portrait";
+
+      const localBackgroundColor = localStorage.getItem("DIGITAL_CONTACT_SHEET_BACKGROUND_COLOR");
+      if (localBackgroundColor) backgroundColor.value = localBackgroundColor;
     };
 
     onMounted(() => {
@@ -362,11 +493,14 @@ export default defineComponent({
       fileName,
       setSortOrder,
       setPxSize,
+      setBackgroundColor,
+      setAsFavorite,
       handleDrop,
       handleFileSelect,
       addFiles,
       triggerFileInput,
       generateContactSheet,
+      generateFilmStripContactSheet,
       downloadContactSheet,
       loadImage,
       resizeImage,
@@ -406,7 +540,17 @@ export default defineComponent({
   margin-top: 10px;
 }
 .action-buttons button {
-  margin-right: 10px; /* Add spacing between buttons */
+  padding: 5px 10px;
+  background-color: #42b883;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.action-buttons button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
 }
 .controls button {
   padding: 5px 10px;
