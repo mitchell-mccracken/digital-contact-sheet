@@ -236,15 +236,24 @@ export default defineComponent({
       return ret;
     };
 
+    const stripNonLetters = (str: string ) => {
+      let ret =  str.replace(/[a-zA-Z]/g, '');
+      ret = ret.replace(/[^0-9]/g, '');
+      return ret;
+    };
+
     const addFiles = async (newFiles: File[]) => {
       disableDraggable.value = true;
       const promises = newFiles.map((file) => {
         return new Promise<void>((resolve) => {
           const reader = new FileReader();
           reader.onload = (e) => {
-            const imgNumber = (file.name.includes('(')) 
-              ? genImgNumber(file.name) || "0"
-              :  file.name.match(/(\d+)/)?.[0] || "0";
+            // const imgNumber = (file.name.includes('(')) 
+            //   ? genImgNumber(file.name) || "0"
+            //   :  file.name.match(/(\d+)/)?.[0] || "0";
+
+            const imgNumber = stripNonLetters(file.name) === '' ? "0" : genImgNumber(file.name) || "0";
+            
             files.value.push({
               file,
               name: file.name,
